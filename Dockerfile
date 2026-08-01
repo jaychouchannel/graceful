@@ -1,14 +1,18 @@
-# Build stage
-FROM golang:1.21-alpine AS builder
+# Single-stage build using Alpine's packaged Go toolchain.
+# Chosen so the image can be built without pulling the much larger
+# golang:*-alpine base image (network-restricted environments still work).
+FROM alpine:latest
+
+# Install Go toolchain, git not needed (no external deps), and runtime certs.
+RUN apk add --no-cache go ca-certificates
+
 WORKDIR /app
 COPY go.mod ./
-RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags='-s -w' -o /graceful ./cmd/graceful
 
-# Final stage
-FROM alpine:3.19
-RUN apk --no-cache add ca-certificates
-COPY --from=builder /graceful /usr/local/bin/graceful
-ENTRYPOINT ["graceful"]
+# Static binary so no glibc/musl runtime dependency in the final layer.
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags='-s -w' -o /graceful ./cmd/graceful \
+    && rm -rf /app
+
+ENTRYPOINT ["/graceful"]
 EXPOSE 8080
