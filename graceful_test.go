@@ -128,8 +128,12 @@ func TestShutdownIdempotent(t *testing.T) {
 		close(trigger)
 	}()
 
-	m.Shutdown()
-	m.Shutdown() // second call should be no-op
+	if err := m.Shutdown(); err != nil {
+		t.Fatalf("first Shutdown returned error: %v", err)
+	}
+	if err := m.Shutdown(); err != nil { // second call should be a no-op
+		t.Fatalf("second Shutdown returned error: %v", err)
+	}
 
 	if count != 1 {
 		t.Fatalf("expected task to stop exactly once, got %d", count)
